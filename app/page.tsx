@@ -1,3 +1,4 @@
+
 const products = [
   {
     name: "Premium Tişört",
@@ -24,9 +25,12 @@ export default function Home() {
     <main className="min-h-screen bg-white text-gray-900">
       {/* HEADER */}
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
           {/* LOGO */}
-          <a href="/" className="text-2xl font-bold tracking-tight">
+          <a
+            href="/"
+            className="shrink-0 text-xl font-bold tracking-tight sm:text-2xl"
+          >
             Mini<span className="text-purple-600">Shop</span>
           </a>
 
@@ -55,17 +59,17 @@ export default function Home() {
           </nav>
 
           {/* BUTTONS */}
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <a
               href="/login"
-              className="hidden rounded-xl px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 sm:block"
+              className="rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 sm:px-4 sm:py-2 sm:text-sm"
             >
               Giriş Yap
             </a>
 
             <a
               href="/register"
-              className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
+              className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-purple-700 sm:px-5 sm:py-3 sm:text-sm"
             >
               Mağazanı Oluştur
             </a>
@@ -75,25 +79,25 @@ export default function Home() {
 
       {/* HERO */}
       <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-indigo-50">
-        <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-14 sm:px-6 sm:py-20 md:grid-cols-2 md:py-28">
           {/* LEFT */}
           <div>
             <div className="mb-6 inline-flex rounded-full bg-purple-100 px-4 py-2 text-sm font-semibold text-purple-700">
               🚀 Online satış artık çok kolay
             </div>
 
-            <h1 className="max-w-3xl text-5xl font-extrabold leading-tight tracking-tight md:text-6xl">
+            <h1 className="max-w-3xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl md:text-6xl">
               Kendi online
               <span className="text-purple-600"> mağazanı </span>
               dakikalar içinde oluştur.
             </h1>
 
-            <p className="mt-6 max-w-xl text-lg leading-8 text-gray-600">
+            <p className="mt-6 max-w-xl text-base leading-7 text-gray-600 sm:text-lg sm:leading-8">
               Ürünlerini ekle, mağazanı oluştur ve linkini Instagram,
               TikTok veya WhatsApp üzerinden paylaş.
             </p>
 
-            <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-4">
               <a
                 href="/register"
                 className="rounded-2xl bg-purple-600 px-7 py-4 text-center font-bold text-white shadow-lg transition hover:bg-purple-700"
@@ -109,7 +113,7 @@ export default function Home() {
               </a>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-6 text-sm text-gray-500">
+            <div className="mt-8 flex flex-wrap gap-4 text-sm text-gray-500 sm:gap-6">
               <span>✓ Kolay kurulum</span>
               <span>✓ Mobil uyumlu</span>
               <span>✓ Güvenli ödeme</span>
@@ -118,7 +122,7 @@ export default function Home() {
 
           {/* STORE PREVIEW */}
           <div className="relative">
-            <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-2xl">
+            <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-2xl sm:p-5">
               {/* STORE HEADER */}
               <div className="flex items-center justify-between border-b border-gray-100 pb-5">
                 <div className="flex items-center gap-3">
@@ -128,9 +132,7 @@ export default function Home() {
 
                   <div>
                     <h3 className="font-bold">Ayşe Butik</h3>
-                    <p className="text-xs text-gray-500">
-                      @aysebutik
-                    </p>
+                    <p className="text-xs text-gray-500">@aysebutik</p>
                   </div>
                 </div>
 
@@ -140,9 +142,9 @@ export default function Home() {
               </div>
 
               {/* PRODUCTS */}
-              <div className="mt-5 grid grid-cols-2 gap-4">
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="overflow-hidden rounded-2xl bg-gray-50">
-                  <div className="flex h-36 items-center justify-center text-6xl">
+                  <div className="flex h-32 items-center justify-center text-5xl sm:h-36 sm:text-6xl">
                     👕
                   </div>
 
@@ -155,7 +157,7 @@ export default function Home() {
                 </div>
 
                 <div className="overflow-hidden rounded-2xl bg-gray-50">
-                  <div className="flex h-36 items-center justify-center text-6xl">
+                  <div className="flex h-32 items-center justify-center text-5xl sm:h-36 sm:text-6xl">
                     👜
                   </div>
 
@@ -182,7 +184,7 @@ export default function Home() {
 
       {/* STATS */}
       <section className="border-b border-gray-200 bg-white">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-6 py-12 md:grid-cols-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-4 py-10 sm:px-6 sm:py-12 md:grid-cols-4">
           <div className="text-center">
             <div className="text-3xl font-extrabold">10K+</div>
             <p className="mt-2 text-sm text-gray-500">Mağaza</p>
@@ -206,14 +208,14 @@ export default function Home() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="nasil" className="bg-gray-50 py-24">
-        <div className="mx-auto max-w-7xl px-6">
+      <section id="nasil" className="bg-gray-50 py-20 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mx-auto max-w-2xl text-center">
             <p className="font-semibold text-purple-600">
               NASIL ÇALIŞIR?
             </p>
 
-            <h2 className="mt-3 text-4xl font-extrabold">
+            <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">
               Satışa başlamak çok kolay
             </h2>
 
@@ -223,8 +225,8 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-16 grid gap-8 md:grid-cols-3">
-            <div className="rounded-3xl bg-white p-8 shadow-sm">
+          <div className="mt-12 grid gap-6 sm:mt-16 md:grid-cols-3">
+            <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
                 1️⃣
               </div>
@@ -239,7 +241,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="rounded-3xl bg-white p-8 shadow-sm">
+            <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
                 2️⃣
               </div>
@@ -254,7 +256,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="rounded-3xl bg-white p-8 shadow-sm">
+            <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
                 3️⃣
               </div>
@@ -273,15 +275,15 @@ export default function Home() {
       </section>
 
       {/* PRODUCTS */}
-      <section id="magazalar" className="bg-white py-24">
-        <div className="mx-auto max-w-7xl px-6">
+      <section id="magazalar" className="bg-white py-20 sm:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
               <p className="font-semibold text-purple-600">
                 POPÜLER ÜRÜNLER
               </p>
 
-              <h2 className="mt-3 text-4xl font-extrabold">
+              <h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">
                 Mağazalardan keşfet
               </h2>
             </div>
@@ -294,17 +296,17 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 grid gap-5 sm:mt-12 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
               <div
                 key={product.name}
                 className="group overflow-hidden rounded-3xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:shadow-xl"
               >
-                <div className="flex h-64 items-center justify-center bg-gray-50 text-8xl transition group-hover:scale-105">
+                <div className="flex h-56 items-center justify-center bg-gray-50 text-7xl transition group-hover:scale-105 sm:h-64 sm:text-8xl">
                   {product.emoji}
                 </div>
 
-                <div className="p-6">
+                <div className="p-5 sm:p-6">
                   <p className="text-sm text-gray-500">
                     {product.category}
                   </p>
@@ -333,9 +335,9 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section id="fiyat" className="px-6 py-20">
-        <div className="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-purple-600 px-8 py-16 text-center text-white shadow-xl">
-          <h2 className="text-4xl font-extrabold">
+      <section id="fiyat" className="px-4 py-16 sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-7xl overflow-hidden rounded-3xl bg-purple-600 px-6 py-12 text-center text-white shadow-xl sm:px-8 sm:py-16">
+          <h2 className="text-3xl font-extrabold sm:text-4xl">
             Satış yapmaya hazır mısın?
           </h2>
 
@@ -355,7 +357,7 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer className="border-t border-gray-200 bg-gray-50">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-10 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-10 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
             <a href="/" className="text-xl font-bold">
               Mini<span className="text-purple-600">Shop</span>
@@ -366,7 +368,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="flex gap-6 text-sm text-gray-500">
+          <div className="flex flex-wrap gap-5 text-sm text-gray-500">
             <a href="#" className="hover:text-gray-900">
               Gizlilik
             </a>
