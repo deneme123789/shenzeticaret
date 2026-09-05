@@ -26,9 +26,9 @@ export default function Home() {
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
           {/* LOGO */}
-          <div className="text-2xl font-bold tracking-tight">
+          <a href="/" className="text-2xl font-bold tracking-tight">
             Mini<span className="text-purple-600">Shop</span>
-          </div>
+          </a>
 
           {/* MENU */}
           <nav className="hidden items-center gap-8 md:flex">
@@ -56,13 +56,19 @@ export default function Home() {
 
           {/* BUTTONS */}
           <div className="flex items-center gap-3">
-            <button className="hidden rounded-xl px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 sm:block">
+            <a
+              href="/login"
+              className="hidden rounded-xl px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 sm:block"
+            >
               Giriş Yap
-            </button>
+            </a>
 
-            <button className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700">
+            <a
+              href="/register"
+              className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
+            >
               Mağazanı Oluştur
-            </button>
+            </a>
           </div>
         </div>
       </header>
@@ -88,13 +94,19 @@ export default function Home() {
             </p>
 
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
-              <button className="rounded-2xl bg-purple-600 px-7 py-4 font-bold text-white shadow-lg transition hover:bg-purple-700">
+              <a
+                href="/register"
+                className="rounded-2xl bg-purple-600 px-7 py-4 text-center font-bold text-white shadow-lg transition hover:bg-purple-700"
+              >
                 Ücretsiz Mağaza Aç →
-              </button>
+              </a>
 
-              <button className="rounded-2xl border border-gray-300 bg-white px-7 py-4 font-bold text-gray-800 transition hover:bg-gray-50">
+              <a
+                href="#nasil"
+                className="rounded-2xl border border-gray-300 bg-white px-7 py-4 text-center font-bold text-gray-800 transition hover:bg-gray-50"
+              >
                 Nasıl Çalışır?
-              </button>
+              </a>
             </div>
 
             <div className="mt-8 flex flex-wrap gap-6 text-sm text-gray-500">
@@ -157,9 +169,12 @@ export default function Home() {
               </div>
 
               {/* ORDER BUTTON */}
-              <button className="mt-5 w-full rounded-xl bg-purple-600 py-3 font-semibold text-white">
+              <a
+                href="#magazalar"
+                className="mt-5 block w-full rounded-xl bg-purple-600 py-3 text-center font-semibold text-white"
+              >
                 Mağazayı Görüntüle
-              </button>
+              </a>
             </div>
           </div>
         </div>
@@ -209,7 +224,6 @@ export default function Home() {
           </div>
 
           <div className="mt-16 grid gap-8 md:grid-cols-3">
-            {/* STEP 1 */}
             <div className="rounded-3xl bg-white p-8 shadow-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
                 1️⃣
@@ -225,7 +239,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* STEP 2 */}
             <div className="rounded-3xl bg-white p-8 shadow-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
                 2️⃣
@@ -241,7 +254,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* STEP 3 */}
             <div className="rounded-3xl bg-white p-8 shadow-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-2xl">
                 3️⃣
@@ -274,9 +286,12 @@ export default function Home() {
               </h2>
             </div>
 
-            <button className="w-fit rounded-xl border border-gray-300 px-5 py-3 font-semibold hover:bg-gray-50">
+            <a
+              href="#magazalar"
+              className="w-fit rounded-xl border border-gray-300 px-5 py-3 font-semibold hover:bg-gray-50"
+            >
               Tümünü Gör →
-            </button>
+            </a>
           </div>
 
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -303,9 +318,12 @@ export default function Home() {
                       {product.price}
                     </span>
 
-                    <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
+                    <a
+                      href="#magazalar"
+                      className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
+                    >
                       İncele
-                    </button>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -326,9 +344,12 @@ export default function Home() {
             yapmaya hemen başla.
           </p>
 
-          <button className="mt-8 rounded-2xl bg-white px-8 py-4 font-bold text-purple-700 shadow-lg transition hover:bg-gray-100">
+          <a
+            href="/register"
+            className="mt-8 inline-block rounded-2xl bg-white px-8 py-4 font-bold text-purple-700 shadow-lg transition hover:bg-gray-100"
+          >
             Ücretsiz Mağaza Aç →
-          </button>
+          </a>
         </div>
       </section>
 
@@ -336,9 +357,9 @@ export default function Home() {
       <footer className="border-t border-gray-200 bg-gray-50">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-10 md:flex-row md:items-center md:justify-between">
           <div>
-            <div className="text-xl font-bold">
+            <a href="/" className="text-xl font-bold">
               Mini<span className="text-purple-600">Shop</span>
-            </div>
+            </a>
 
             <p className="mt-2 text-sm text-gray-500">
               Online satışın en kolay yolu.
@@ -363,3 +384,4 @@ export default function Home() {
     </main>
   );
 }
+

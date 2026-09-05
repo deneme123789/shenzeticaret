@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Store = {
@@ -36,6 +35,14 @@ export default function StorePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const [search, setSearch] = useState("");
+  const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+
+  const [completedOrderId, setCompletedOrderId] = useState<string | null>(
+    null
+  );
+
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerCity, setCustomerCity] = useState("");
@@ -58,14 +65,13 @@ export default function StorePage() {
         return;
       }
 
-      const { data: storeData, error: storeError } =
-        await supabase
-          .from("stores")
-          .select("*")
-          .eq("slug", slug)
-          .single();
+      const { data: storeData, error: storeError } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("slug", slug)
+        .single();
 
-      if (storeError) {
+      if (storeError || !storeData) {
         console.log("Store error:", storeError);
         setError("Mağaza bulunamadı.");
         return;
@@ -73,17 +79,16 @@ export default function StorePage() {
 
       setStore(storeData);
 
-      const { data: productData, error: productError } =
-        await supabase
-          .from("products")
-          .select(
-            "id, store_id, name, description, price, stock, image_url, is_active"
-          )
-          .eq("store_id", storeData.id)
-          .eq("is_active", true)
-          .order("created_at", {
-            ascending: false,
-          });
+      const { data: productData, error: productError } = await supabase
+        .from("products")
+        .select(
+          "id, store_id, name, description, price, stock, image_url, is_active"
+        )
+        .eq("store_id", storeData.id)
+        .eq("is_active", true)
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (productError) {
         console.log("Product error:", productError);
@@ -142,7 +147,8 @@ export default function StorePage() {
       ];
     });
 
-    setMessage(product.name + " sepete eklendi!");
+    setMessage(`${product.name} sepete eklendi!`);
+    setShowCart(true);
   }
 
   function increaseQuantity(productId: string) {
@@ -182,12 +188,61 @@ export default function StorePage() {
     );
   }
 
-  function getTotal() {
+  const filteredProducts = useMemo(() => {
+    const searchText = search.trim().toLowerCase();
+
+    if (!searchText) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      return (
+        product.name.toLowerCase().includes(searchText) ||
+        product.description?.toLowerCase().includes(searchText)
+      );
+    });
+  }, [products, search]);
+
+  const cartCount = useMemo(() => {
+    return cart.reduce((total, item) => total + item.quantity, 0);
+  }, [cart]);
+
+  const total = useMemo(() => {
     return cart.reduce(
-      (total, item) =>
-        total + Number(item.price) * item.quantity,
+      (totalAmount, item) =>
+        totalAmount + Number(item.price) * item.quantity,
       0
     );
+  }, [cart]);
+
+  function formatPrice(price: number) {
+    return Number(price).toLocaleString("tr-TR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  function openCheckout() {
+    setError("");
+    setMessage("");
+
+    if (cart.length === 0) {
+      setError("Önce sepetinize ürün ekleyin.");
+      setShowCart(true);
+      return;
+    }
+
+    setShowCart(false);
+    setShowCheckout(true);
+
+    setTimeout(() => {
+      document
+        .getElementById("checkout")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 100);
   }
 
   async function createOrder() {
@@ -237,10 +292,6 @@ export default function StorePage() {
         quantity: item.quantity,
       }));
 
-      console.log("Sipariş oluşturuluyor...");
-      console.log("Store ID:", store.id);
-      console.log("Ürünler:", orderItems);
-
       const { data: orderId, error: orderError } =
         await supabase.rpc("create_order_with_stock", {
           p_store_id: store.id,
@@ -255,24 +306,33 @@ export default function StorePage() {
       if (orderError) {
         console.log("Order error:", orderError);
 
-        let errorMessage = orderError.message;
+        const errorMessage = orderError.message.toLowerCase();
 
-        if (
-          errorMessage.toLowerCase().includes("yetersiz stok")
+        if (errorMessage.includes("yetersiz stok")) {
+          setError(
+            "Bazı ürünlerin stoğu yeterli değil. Sepetinizi kontrol edin."
+          );
+        } else if (
+          errorMessage.includes("ürün bulunamadı")
         ) {
-          errorMessage =
-            "Sipariş oluşturulamadı: " + errorMessage;
+          setError(
+            "Sepetinizdeki ürünlerden biri artık mevcut değil."
+          );
+        } else if (
+          errorMessage.includes("artık satışta değil")
+        ) {
+          setError(
+            "Sepetinizdeki ürünlerden biri artık satışta değil."
+          );
         } else {
-          errorMessage =
-            "Sipariş oluşturulamadı: " + errorMessage;
+          setError(
+            "Sipariş oluşturulamadı. Lütfen tekrar deneyin."
+          );
         }
 
-        setError(errorMessage);
+        await loadStore();
         return;
       }
-
-      console.log("Sipariş başarıyla oluşturuldu.");
-      console.log("Order ID:", orderId);
 
       setCart([]);
       setCustomerName("");
@@ -283,366 +343,739 @@ export default function StorePage() {
 
       await loadStore();
 
-      setMessage(
-        "Siparişiniz başarıyla oluşturuldu. Sipariş numaranız: " +
-          orderId
-      );
+      setCompletedOrderId(orderId);
+      setShowCheckout(false);
+      setShowCart(false);
+      setMessage("");
     } catch (err) {
       console.log("Create order error:", err);
+
       setError(
-        "Sipariş oluşturulurken bir hata oluştu."
+        "Sipariş oluşturulurken bir hata oluştu. Lütfen tekrar deneyin."
       );
     } finally {
       setCreatingOrder(false);
     }
   }
 
+  function continueShopping() {
+    setCompletedOrderId(null);
+    setShowCheckout(false);
+    setShowCart(false);
+    setError("");
+    setMessage("");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
   if (loading) {
     return (
-      <main
-        style={{
-          maxWidth: "1000px",
-          margin: "40px auto",
-          padding: "20px",
-        }}
-      >
-        <h1>Mağaza yükleniyor...</h1>
+      <main className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-6xl px-4 py-20">
+          <div className="animate-pulse">
+            <div className="h-10 w-64 rounded-xl bg-gray-200" />
+            <div className="mt-4 h-5 w-80 rounded bg-gray-200" />
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="overflow-hidden rounded-3xl bg-white"
+                >
+                  <div className="h-64 bg-gray-200" />
+                  <div className="space-y-3 p-6">
+                    <div className="h-5 rounded bg-gray-200" />
+                    <div className="h-4 w-2/3 rounded bg-gray-200" />
+                    <div className="h-11 rounded-xl bg-gray-200" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
 
   if (!store) {
     return (
-      <main
-        style={{
-          maxWidth: "1000px",
-          margin: "40px auto",
-          padding: "20px",
-        }}
-      >
-        <h1>Mağaza bulunamadı</h1>
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
+        <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-xl">
+          <div className="text-5xl">🏪</div>
 
-        {error && (
-          <p style={{ color: "red" }}>
-            {error}
+          <h1 className="mt-5 text-2xl font-extrabold">
+            Mağaza bulunamadı
+          </h1>
+
+          <p className="mt-3 text-gray-600">
+            Aradığınız mağaza mevcut değil veya kaldırılmış olabilir.
           </p>
-        )}
+
+          {error && (
+            <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
+          <a
+            href="/"
+            className="mt-6 inline-block rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-700"
+          >
+            Ana Sayfaya Dön
+          </a>
+        </div>
+      </main>
+    );
+  }
+
+  if (completedOrderId) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 px-4 py-12">
+        <div className="mx-auto max-w-xl">
+          <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-xl sm:p-12">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 text-4xl">
+              ✓
+            </div>
+
+            <p className="mt-6 text-sm font-bold uppercase tracking-wider text-purple-600">
+              Sipariş Başarılı
+            </p>
+
+            <h1 className="mt-3 text-3xl font-extrabold sm:text-4xl">
+              Siparişiniz alındı! 🎉
+            </h1>
+
+            <p className="mt-4 leading-7 text-gray-600">
+              Siparişiniz başarıyla oluşturuldu. Mağaza sahibi
+              siparişinizi hazırlamaya başlayabilir.
+            </p>
+
+            <div className="mt-8 rounded-2xl bg-gray-50 p-5">
+              <p className="text-sm text-gray-500">
+                Sipariş Numaranız
+              </p>
+
+              <p className="mt-2 break-all text-lg font-extrabold text-gray-900">
+                {completedOrderId}
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={continueShopping}
+                className="flex-1 rounded-xl bg-purple-600 px-5 py-4 font-bold text-white transition hover:bg-purple-700"
+              >
+                Alışverişe Devam Et
+              </button>
+
+              <a
+                href="/"
+                className="flex-1 rounded-xl border border-gray-300 px-5 py-4 font-bold text-gray-800 transition hover:bg-gray-50"
+              >
+                MiniShop Ana Sayfa
+              </a>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main
-      style={{
-        maxWidth: "1100px",
-        margin: "0 auto",
-        padding: "30px 20px",
-      }}
-    >
-      <h1
-        style={{
-          fontSize: "32px",
-          marginBottom: "10px",
-        }}
-      >
-        {store.name}
-      </h1>
+    <main className="min-h-screen bg-gray-50 text-gray-900">
+      {/* HEADER */}
+      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-extrabold sm:text-2xl">
+              {store.name}
+            </h1>
 
-      <p
-        style={{
-          color: "#666",
-          marginBottom: "30px",
-        }}
-      >
-        Mağazaya hoş geldiniz.
-      </p>
+            <p className="truncate text-xs text-gray-500 sm:text-sm">
+              MiniShop mağazası
+            </p>
+          </div>
 
-      {message && (
-        <div
-          style={{
-            background: "#e8f7e8",
-            border: "1px solid #8bc48b",
-            padding: "12px",
-            marginBottom: "20px",
-            borderRadius: "8px",
-          }}
-        >
-          {message}
-        </div>
-      )}
-
-      {error && (
-        <div
-          style={{
-            background: "#ffe8e8",
-            border: "1px solid #e08a8a",
-            padding: "12px",
-            marginBottom: "20px",
-            borderRadius: "8px",
-            color: "#a00000",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <section>
-        <h2 style={{ marginBottom: "20px" }}>
-          Ürünler
-        </h2>
-
-        {products.length === 0 ? (
-          <p>Henüz ürün bulunmuyor.</p>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fill, minmax(220px, 1fr))",
-              gap: "20px",
-            }}
+          <button
+            type="button"
+            onClick={() => setShowCart(true)}
+            className="relative flex shrink-0 items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 font-bold text-white shadow-sm transition hover:bg-purple-700"
           >
-            {products.map((product) => (
-              <div
-                key={product.id}
-                style={{
-                  border: "1px solid #ddd",
-                  borderRadius: "10px",
-                  padding: "15px",
-                }}
+            <span>🛒</span>
+
+            <span className="hidden sm:inline">
+              Sepet
+            </span>
+
+            {cartCount > 0 && (
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1 text-xs font-extrabold text-purple-600">
+                {cartCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* HERO */}
+      <section className="bg-gradient-to-br from-purple-600 via-purple-600 to-indigo-700 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
+          <div className="max-w-3xl">
+            <div className="inline-flex rounded-full bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur">
+              🛍️ Online Mağaza
+            </div>
+
+            <h2 className="mt-5 text-4xl font-extrabold leading-tight sm:text-5xl">
+              {store.name}
+            </h2>
+
+            <p className="mt-4 max-w-2xl text-base leading-7 text-purple-100 sm:text-lg">
+              Ürünlerimizi keşfedin, beğendiğiniz ürünleri sepetinize
+              ekleyin ve kolayca sipariş oluşturun.
+            </p>
+          </div>
+
+          {/* SEARCH */}
+          <div className="mt-8 max-w-2xl">
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                🔎
+              </span>
+
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Ürün ara..."
+                className="w-full rounded-2xl border-0 bg-white px-12 py-4 text-gray-900 shadow-lg outline-none ring-0 placeholder:text-gray-400 focus:ring-4 focus:ring-white/20"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* MAIN */}
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
+        {/* MESSAGES */}
+        {message && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
+            <span className="text-xl">✓</span>
+            <span>{message}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+            <span className="text-xl">!</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* PRODUCTS HEADER */}
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wider text-purple-600">
+              Ürünler
+            </p>
+
+            <h2 className="mt-2 text-3xl font-extrabold">
+              Mağaza ürünleri
+            </h2>
+          </div>
+
+          <p className="text-sm text-gray-500">
+            {filteredProducts.length} ürün
+          </p>
+        </div>
+
+        {/* PRODUCTS */}
+        {filteredProducts.length === 0 ? (
+          <div className="mt-10 rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center">
+            <div className="text-5xl">🔎</div>
+
+            <h3 className="mt-5 text-xl font-bold">
+              Ürün bulunamadı
+            </h3>
+
+            <p className="mt-2 text-gray-500">
+              Aramanı değiştirerek tekrar deneyebilirsin.
+            </p>
+
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="mt-5 rounded-xl bg-purple-600 px-5 py-3 font-bold text-white"
               >
-                {product.image_url && (
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    style={{
-                      width: "100%",
-                      height: "200px",
-                      objectFit: "cover",
-                      borderRadius: "8px",
-                      marginBottom: "10px",
-                    }}
-                  />
-                )}
+                Aramayı Temizle
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredProducts.map((product) => (
+              <article
+                key={product.id}
+                className="group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+              >
+                {/* IMAGE */}
+                <div className="relative overflow-hidden bg-gray-100">
+                  {product.image_url ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="h-64 w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center text-7xl">
+                      🛍️
+                    </div>
+                  )}
 
-                <h3>{product.name}</h3>
+                  {/* STOCK */}
+                  {product.stock > 0 && product.stock <= 5 && (
+                    <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-3 py-1.5 text-xs font-bold text-white shadow">
+                      Son {product.stock} adet
+                    </div>
+                  )}
 
-                {product.description && (
-                  <p style={{ color: "#666" }}>
-                    {product.description}
-                  </p>
-                )}
+                  {product.stock <= 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/45">
+                      <span className="rounded-full bg-white px-4 py-2 font-bold text-gray-900">
+                        Stokta Yok
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-                <p>
-                  <strong>
-                    {Number(product.price).toFixed(2)} TL
-                  </strong>
-                </p>
+                {/* INFO */}
+                <div className="p-5">
+                  <h3 className="line-clamp-2 text-lg font-bold">
+                    {product.name}
+                  </h3>
 
-                <p>
-                  Stok: {product.stock}
-                </p>
+                  {product.description && (
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-500">
+                      {product.description}
+                    </p>
+                  )}
 
-                <button
-                  onClick={() => addToCart(product)}
-                  disabled={product.stock <= 0}
-                  style={{
-                    width: "100%",
-                    padding: "10px",
-                    cursor:
-                      product.stock > 0
-                        ? "pointer"
-                        : "not-allowed",
-                  }}
-                >
-                  {product.stock > 0
-                    ? "Sepete Ekle"
-                    : "Stokta Yok"}
-                </button>
-              </div>
+                  <div className="mt-5 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">
+                        Fiyat
+                      </p>
+
+                      <p className="mt-1 text-xl font-extrabold text-purple-600">
+                        {formatPrice(product.price)} TL
+                      </p>
+                    </div>
+
+                    <span className="text-xs font-medium text-gray-500">
+                      {product.stock > 0
+                        ? `${product.stock} stok`
+                        : "Tükendi"}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => addToCart(product)}
+                    disabled={product.stock <= 0}
+                    className="mt-5 w-full rounded-xl bg-gray-900 px-4 py-3.5 font-bold text-white transition hover:bg-purple-600 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500"
+                  >
+                    {product.stock > 0
+                      ? "🛒 Sepete Ekle"
+                      : "Stokta Yok"}
+                  </button>
+                </div>
+              </article>
             ))}
           </div>
         )}
-      </section>
 
-      <section
-        style={{
-          marginTop: "40px",
-          borderTop: "1px solid #ddd",
-          paddingTop: "30px",
-        }}
-      >
-        <h2>Sepet</h2>
-
-        {cart.length === 0 ? (
-          <p>Sepetiniz boş.</p>
-        ) : (
-          <>
-            {cart.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "15px",
-                  padding: "15px 0",
-                  borderBottom: "1px solid #eee",
-                }}
-              >
+        {/* CHECKOUT */}
+        {showCheckout && (
+          <section
+            id="checkout"
+            className="mt-16 scroll-mt-28"
+          >
+            <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+              {/* FORM */}
+              <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
                 <div>
-                  <strong>{item.name}</strong>
+                  <p className="text-sm font-bold uppercase tracking-wider text-purple-600">
+                    Sipariş
+                  </p>
 
-                  <p>
-                    {Number(item.price).toFixed(2)} TL x{" "}
-                    {item.quantity}
+                  <h2 className="mt-2 text-3xl font-extrabold">
+                    Teslimat bilgileri
+                  </h2>
+
+                  <p className="mt-2 text-gray-500">
+                    Siparişiniz için gerekli bilgileri doldurun.
                   </p>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}
-                >
+                <div className="mt-8 grid gap-5 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-bold">
+                      Ad Soyad
+                    </label>
+
+                    <input
+                      value={customerName}
+                      onChange={(e) =>
+                        setCustomerName(e.target.value)
+                      }
+                      placeholder="Örn. Ahmet Yılmaz"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3.5 outline-none transition focus:border-purple-600 focus:ring-4 focus:ring-purple-100"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-bold">
+                      Telefon
+                    </label>
+
+                    <input
+                      value={customerPhone}
+                      onChange={(e) =>
+                        setCustomerPhone(e.target.value)
+                      }
+                      type="tel"
+                      placeholder="05XX XXX XX XX"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3.5 outline-none transition focus:border-purple-600 focus:ring-4 focus:ring-purple-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold">
+                      Şehir
+                    </label>
+
+                    <input
+                      value={customerCity}
+                      onChange={(e) =>
+                        setCustomerCity(e.target.value)
+                      }
+                      placeholder="İstanbul"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3.5 outline-none transition focus:border-purple-600 focus:ring-4 focus:ring-purple-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold">
+                      İlçe
+                    </label>
+
+                    <input
+                      value={customerDistrict}
+                      onChange={(e) =>
+                        setCustomerDistrict(e.target.value)
+                      }
+                      placeholder="Esenyurt"
+                      className="w-full rounded-xl border border-gray-300 px-4 py-3.5 outline-none transition focus:border-purple-600 focus:ring-4 focus:ring-purple-100"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-bold">
+                      Açık Adres
+                    </label>
+
+                    <textarea
+                      value={customerAddress}
+                      onChange={(e) =>
+                        setCustomerAddress(e.target.value)
+                      }
+                      placeholder="Mahalle, sokak, bina no, daire no..."
+                      rows={5}
+                      className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3.5 outline-none transition focus:border-purple-600 focus:ring-4 focus:ring-purple-100"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                    ❌ {error}
+                  </div>
+                )}
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                   <button
-                    onClick={() =>
-                      decreaseQuantity(item.id)
-                    }
+                    type="button"
+                    onClick={() => {
+                      setShowCheckout(false);
+                      setShowCart(true);
+                    }}
+                    className="rounded-xl border border-gray-300 px-5 py-4 font-bold text-gray-800 hover:bg-gray-50"
                   >
-                    -
+                    ← Sepete Dön
                   </button>
 
-                  <span>{item.quantity}</span>
-
                   <button
-                    onClick={() =>
-                      increaseQuantity(item.id)
-                    }
+                    type="button"
+                    onClick={createOrder}
+                    disabled={creatingOrder}
+                    className="flex-1 rounded-xl bg-purple-600 px-5 py-4 font-bold text-white shadow-lg transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    +
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      removeFromCart(item.id)
-                    }
-                  >
-                    Sil
+                    {creatingOrder
+                      ? "Sipariş oluşturuluyor..."
+                      : "Siparişi Oluştur →"}
                   </button>
                 </div>
               </div>
-            ))}
 
-            <h3
-              style={{
-                marginTop: "20px",
-                textAlign: "right",
-              }}
-            >
-              Toplam: {getTotal().toFixed(2)} TL
-            </h3>
-          </>
+              {/* SUMMARY */}
+              <div className="h-fit rounded-3xl border border-gray-200 bg-white p-6 shadow-sm lg:sticky lg:top-28">
+                <h3 className="text-xl font-extrabold">
+                  Sipariş Özeti
+                </h3>
+
+                <div className="mt-5 space-y-4">
+                  {cart.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex gap-3"
+                    >
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-2xl">
+                            🛍️
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold">
+                          {item.name}
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                          {item.quantity} ×{" "}
+                          {formatPrice(item.price)} TL
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 border-t border-gray-200 pt-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-500">
+                      Ürünler
+                    </span>
+
+                    <span className="font-semibold">
+                      {formatPrice(total)} TL
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-lg font-extrabold">
+                      Toplam
+                    </span>
+
+                    <span className="text-2xl font-extrabold text-purple-600">
+                      {formatPrice(total)} TL
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         )}
-      </section>
+      </div>
 
-      <section
-        style={{
-          marginTop: "40px",
-          borderTop: "1px solid #ddd",
-          paddingTop: "30px",
-          maxWidth: "600px",
-        }}
-      >
-        <h2>Sipariş Bilgileri</h2>
+      {/* CART OVERLAY */}
+      {showCart && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Sepeti kapat"
+            onClick={() => setShowCart(false)}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          />
 
-        <input
-          value={customerName}
-          onChange={(e) =>
-            setCustomerName(e.target.value)
-          }
-          placeholder="Ad Soyad"
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "10px",
-          }}
-        />
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+            {/* CART HEADER */}
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-5">
+              <div>
+                <h2 className="text-2xl font-extrabold">
+                  Sepetim
+                </h2>
 
-        <input
-          value={customerPhone}
-          onChange={(e) =>
-            setCustomerPhone(e.target.value)
-          }
-          placeholder="Telefon"
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "10px",
-          }}
-        />
+                <p className="mt-1 text-sm text-gray-500">
+                  {cartCount} ürün
+                </p>
+              </div>
 
-        <input
-          value={customerCity}
-          onChange={(e) =>
-            setCustomerCity(e.target.value)
-          }
-          placeholder="Şehir"
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "10px",
-          }}
-        />
+              <button
+                type="button"
+                onClick={() => setShowCart(false)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-xl hover:bg-gray-200"
+              >
+                ×
+              </button>
+            </div>
 
-        <input
-          value={customerDistrict}
-          onChange={(e) =>
-            setCustomerDistrict(e.target.value)
-          }
-          placeholder="İlçe"
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "10px",
-          }}
-        />
+            {/* CART CONTENT */}
+            <div className="flex-1 overflow-y-auto px-5 py-5">
+              {cart.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center">
+                  <div className="text-6xl">🛒</div>
 
-        <textarea
-          value={customerAddress}
-          onChange={(e) =>
-            setCustomerAddress(e.target.value)
-          }
-          placeholder="Adres"
-          rows={5}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "10px",
-          }}
-        />
+                  <h3 className="mt-5 text-xl font-extrabold">
+                    Sepetin boş
+                  </h3>
 
-        <button
-          onClick={createOrder}
-          disabled={
-            creatingOrder || cart.length === 0
-          }
-          style={{
-            width: "100%",
-            padding: "14px",
-            fontSize: "16px",
-            cursor:
-              creatingOrder || cart.length === 0
-                ? "not-allowed"
-                : "pointer",
-          }}
-        >
-          {creatingOrder
-            ? "Sipariş oluşturuluyor..."
-            : "Sipariş Oluştur"}
-        </button>
-      </section>
+                  <p className="mt-2 text-gray-500">
+                    Beğendiğin ürünleri sepete eklemeye başla.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowCart(false)}
+                    className="mt-6 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white"
+                  >
+                    Ürünlere Bak
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {cart.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-gray-200 p-4"
+                    >
+                      <div className="flex gap-3">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-3xl">
+                              🛍️
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold">
+                            {item.name}
+                          </p>
+
+                          <p className="mt-1 text-sm font-semibold text-purple-600">
+                            {formatPrice(item.price)} TL
+                          </p>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <div className="flex items-center rounded-xl border border-gray-200">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  decreaseQuantity(item.id)
+                                }
+                                className="px-3 py-2 font-bold hover:bg-gray-50"
+                              >
+                                −
+                              </button>
+
+                              <span className="min-w-8 text-center text-sm font-bold">
+                                {item.quantity}
+                              </span>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  increaseQuantity(item.id)
+                                }
+                                disabled={
+                                  item.quantity >= item.stock
+                                }
+                                className="px-3 py-2 font-bold hover:bg-gray-50 disabled:opacity-30"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeFromCart(item.id)
+                              }
+                              className="text-sm font-semibold text-red-500 hover:text-red-700"
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* CART FOOTER */}
+            {cart.length > 0 && (
+              <div className="border-t border-gray-200 bg-white p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-gray-500">
+                    Toplam
+                  </span>
+
+                  <span className="text-2xl font-extrabold text-purple-600">
+                    {formatPrice(total)} TL
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={openCheckout}
+                  className="w-full rounded-xl bg-purple-600 py-4 font-bold text-white shadow-lg transition hover:bg-purple-700"
+                >
+                  Siparişi Tamamla →
+                </button>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+
+      {/* FOOTER */}
+      <footer className="border-t border-gray-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-center sm:px-6 sm:text-left md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-extrabold">
+              {store.name}
+            </p>
+
+            <p className="mt-1 text-sm text-gray-500">
+              MiniShop altyapısıyla oluşturuldu.
+            </p>
+          </div>
+
+          <a
+            href="/"
+            className="text-sm font-semibold text-purple-600 hover:text-purple-800"
+          >
+            MiniShop
+          </a>
+        </div>
+      </footer>
     </main>
   );
 }

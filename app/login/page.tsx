@@ -32,9 +32,7 @@ export default function LoginPage() {
       return;
     }
 
-    setMessage("🎉 Başarıyla giriş yaptın!");
-
-    setLoading(false);
+    window.location.href = "/dashboard";
   }
 
   async function handleForgotPassword() {
