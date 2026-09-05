@@ -7,6 +7,8 @@ type Store = {
   id: string;
   name: string;
   slug: string;
+  verification_status: "pending" | "approved" | "rejected";
+  status: "active" | "suspended" | "blocked";
 };
 
 type Product = {
@@ -190,9 +192,11 @@ export default function DashboardPage() {
     const { data: storeData, error: storeError } =
       await supabase
         .from("stores")
-        .select("id, name, slug")
-        .eq("owner_id", user.id)
-        .single();
+.select(
+  "id, name, slug, verification_status, status"
+)
+.eq("owner_id", user.id)
+.single();
 
     if (storeError || !storeData) {
       setError("Mağaza bilgileri alınamadı.");
@@ -201,6 +205,14 @@ export default function DashboardPage() {
     }
 
     setStore(storeData);
+    if (
+  storeData.verification_status !== "approved" ||
+  storeData.status !== "active"
+) {
+  setMessage(
+    "🟡 Mağazan henüz satış için onaylanmadı. Admin onayından sonra ürün ekleyebilirsin."
+  );
+}
 
     const { data: productData, error: productError } =
       await supabase
@@ -391,7 +403,17 @@ export default function DashboardPage() {
 
     if (!store) return;
 
-    setAddingProduct(true);
+if (
+  store.verification_status !== "approved" ||
+  store.status !== "active"
+) {
+  setError(
+    "Bu mağaza henüz satış için onaylanmadı. Admin onayından sonra ürün ekleyebilirsin."
+  );
+  return;
+}
+
+setAddingProduct(true);
     setMessage("");
     setError("");
 

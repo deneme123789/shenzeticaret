@@ -1,4 +1,3 @@
-
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -7,12 +6,16 @@ import { supabase } from "@/lib/supabase";
 type AccountType = "customer" | "seller";
 
 export default function RegisterPage() {
-  const [accountType, setAccountType] = useState<AccountType>("customer");
+  const [accountType, setAccountType] =
+    useState<AccountType>("customer");
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     setLoading(true);
@@ -21,25 +24,70 @@ export default function RegisterPage() {
 
     const formData = new FormData(event.currentTarget);
 
-    const fullName = formData.get("fullName") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const fullName =
+      (formData.get("fullName") as string)?.trim() || "";
 
-    const storeName = formData.get("storeName") as string;
-    const storeSlug = formData.get("storeSlug") as string;
+    const email =
+      (formData.get("email") as string)?.trim() || "";
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          account_type: accountType,
-          store_name: accountType === "seller" ? storeName : null,
-          store_slug: accountType === "seller" ? storeSlug : null,
+    const password =
+      (formData.get("password") as string) || "";
+
+    const storeName =
+      (formData.get("storeName") as string)?.trim() || "";
+
+    const storeSlug =
+      (formData.get("storeSlug") as string)?.trim() || "";
+
+    if (!fullName || !email || !password) {
+      setError("Lütfen gerekli alanları doldur.");
+      setLoading(false);
+      return;
+    }
+
+    if (accountType === "seller") {
+      if (!storeName || !storeSlug) {
+        setError("Lütfen mağaza bilgilerini doldur.");
+        setLoading(false);
+        return;
+      }
+    }
+
+    const cleanSlug = storeSlug
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (accountType === "seller" && !cleanSlug) {
+      setError("Geçerli bir mağaza kullanıcı adı gir.");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error: signUpError } =
+      await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            account_type: accountType,
+
+            store_name:
+              accountType === "seller"
+                ? storeName
+                : null,
+
+            store_slug:
+              accountType === "seller"
+                ? cleanSlug
+                : null,
+          },
         },
-      },
-    });
+      });
 
     if (signUpError) {
       setError(signUpError.message);
@@ -54,37 +102,63 @@ export default function RegisterPage() {
     }
 
     /*
-      profiles tablosundaki trigger kullanıcı oluşturulduğunda
-      profili otomatik olarak oluşturuyor.
+      profiles tablosu Supabase trigger tarafından
+      otomatik oluşturulur.
     */
 
-    if (accountType === "seller" && data.session) {
-      const cleanSlug = storeSlug
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-");
+    /*
+      E-posta doğrulaması kapalıysa session gelir.
+      Bu durumda mağazayı doğrudan oluşturuyoruz.
 
+      Mağaza:
+      verification_status = pending
+      status = suspended
+
+      Yani admin onaylamadan satış yapamaz.
+    */
+    if (accountType === "seller" && data.session) {
       const { error: storeError } = await supabase
         .from("stores")
         .insert({
           owner_id: data.user.id,
-          name: storeName.trim(),
+          name: storeName,
           slug: cleanSlug,
+          verification_status: "pending",
+          status: "suspended",
+          verified_at: null,
+          suspension_reason:
+            "Mağaza doğrulama onayı bekliyor.",
         });
 
       if (storeError) {
-        setError(storeError.message);
+        setError(
+          "Mağaza oluşturulamadı: " +
+            storeError.message
+        );
+
         setLoading(false);
         return;
       }
 
-      setMessage("🎉 Hesabın ve mağazan başarıyla oluşturuldu!");
-    } else if (accountType === "customer" && data.session) {
-      setMessage("🎉 Müşteri hesabın başarıyla oluşturuldu!");
+      setMessage(
+        "🎉 Hesabın oluşturuldu! Mağazan doğrulama incelemesine alındı. Admin onayından sonra satış yapabilirsin."
+      );
+    } else if (
+      accountType === "customer" &&
+      data.session
+    ) {
+      setMessage(
+        "🎉 Müşteri hesabın başarıyla oluşturuldu!"
+      );
     } else {
+      /*
+        E-posta doğrulaması açıksa burada session yoktur.
+        Satıcı mağazası bu aşamada oluşturulmaz.
+        Kullanıcı doğrulama yaptıktan sonra giriş yapabilir.
+      */
       if (accountType === "seller") {
         setMessage(
-          "📧 Kayıt başarılı! E-posta adresine gelen doğrulama bağlantısına tıklaman gerekiyor. Daha sonra giriş yaparak mağazanı oluşturabilirsin."
+          "📧 Kayıt başarılı! E-posta adresine gelen doğrulama bağlantısına tıklaman gerekiyor. Doğrulamadan sonra giriş yaparak mağaza doğrulama sürecini tamamlayabilirsin."
         );
       } else {
         setMessage(
@@ -99,10 +173,16 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 px-4 py-10 sm:px-6 sm:py-12">
       <div className="mx-auto max-w-md">
+
         {/* LOGO */}
         <div className="mb-8 text-center">
-          <a href="/" className="text-3xl font-extrabold tracking-tight">
-            Mini<span className="text-purple-600">Shop</span>
+          <a
+            href="/"
+            className="text-3xl font-extrabold tracking-tight"
+          >
+            Mini<span className="text-purple-600">
+              Shop
+            </span>
           </a>
 
           <h1 className="mt-7 text-3xl font-extrabold">
@@ -110,13 +190,16 @@ export default function RegisterPage() {
           </h1>
 
           <p className="mt-3 text-gray-600">
-            Nasıl kullanmak istediğini seç ve hesabını oluştur.
+            Nasıl kullanmak istediğini seç ve hesabını
+            oluştur.
           </p>
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-xl sm:p-8">
+
           {message ? (
             <div className="py-8 text-center">
+
               <div className="text-5xl">🎉</div>
 
               <h2 className="mt-5 text-2xl font-bold">
@@ -138,11 +221,13 @@ export default function RegisterPage() {
             <>
               {/* ACCOUNT TYPE */}
               <div className="mb-7">
+
                 <p className="mb-3 text-sm font-semibold text-gray-700">
                   Hesap türünü seç
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
+
                   <button
                     type="button"
                     onClick={() => {
@@ -155,7 +240,9 @@ export default function RegisterPage() {
                         : "border-gray-200 bg-white hover:border-purple-300"
                     }`}
                   >
-                    <div className="text-2xl">👤</div>
+                    <div className="text-2xl">
+                      👤
+                    </div>
 
                     <div className="mt-2 font-bold">
                       Müşteri
@@ -178,7 +265,9 @@ export default function RegisterPage() {
                         : "border-gray-200 bg-white hover:border-purple-300"
                     }`}
                   >
-                    <div className="text-2xl">🏪</div>
+                    <div className="text-2xl">
+                      🏪
+                    </div>
 
                     <div className="mt-2 font-bold">
                       Mağaza Aç
@@ -188,11 +277,16 @@ export default function RegisterPage() {
                       Satış yap
                     </div>
                   </button>
+
                 </div>
               </div>
 
               {/* FORM */}
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-5"
+              >
+
                 {/* FULL NAME */}
                 <div>
                   <label className="mb-2 block text-sm font-semibold">
@@ -204,6 +298,7 @@ export default function RegisterPage() {
                     type="text"
                     placeholder="Adınız ve soyadınız"
                     required
+                    autoComplete="name"
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                   />
                 </div>
@@ -219,6 +314,7 @@ export default function RegisterPage() {
                     type="email"
                     placeholder="ornek@email.com"
                     required
+                    autoComplete="email"
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                   />
                 </div>
@@ -235,20 +331,29 @@ export default function RegisterPage() {
                     placeholder="En az 8 karakter"
                     minLength={8}
                     required
+                    autoComplete="new-password"
                     className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none transition focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                   />
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Şifren en az 8 karakter olmalıdır.
+                  </p>
                 </div>
 
                 {/* SELLER FIELDS */}
                 {accountType === "seller" && (
                   <div className="space-y-5 rounded-2xl bg-purple-50 p-4">
+
                     <div>
                       <p className="font-bold text-purple-900">
                         🏪 Mağaza Bilgileri
                       </p>
 
                       <p className="mt-1 text-sm text-purple-700">
-                        Satış yapabilmek için mağazanı oluşturalım.
+                        Mağazan oluşturulacak ancak
+                        satış yapabilmesi için önce
+                        MiniShop doğrulamasından geçmesi
+                        gerekecek.
                       </p>
                     </div>
 
@@ -272,6 +377,7 @@ export default function RegisterPage() {
                       </label>
 
                       <div className="flex overflow-hidden rounded-xl border border-gray-300 bg-white focus-within:border-purple-600 focus-within:ring-2 focus-within:ring-purple-100">
+
                         <span className="flex items-center bg-gray-50 px-3 text-xs text-gray-500 sm:text-sm">
                           minishop.com/
                         </span>
@@ -283,7 +389,28 @@ export default function RegisterPage() {
                           required={accountType === "seller"}
                           className="min-w-0 flex-1 px-3 py-3 outline-none"
                         />
+
                       </div>
+
+                      <p className="mt-2 text-xs text-gray-500">
+                        Sadece İngilizce harf, rakam ve
+                        tire kullanabilirsin.
+                      </p>
+                    </div>
+
+                    {/* SECURITY INFO */}
+                    <div className="rounded-xl border border-purple-200 bg-white p-4">
+
+                      <p className="font-semibold text-gray-800">
+                        🛡️ Güvenlik
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-gray-600">
+                        Mağazan ilk aşamada doğrulama
+                        bekleyecek. Admin onayı olmadan
+                        satışa açılamayacak.
+                      </p>
+
                     </div>
                   </div>
                 )}
@@ -297,8 +424,8 @@ export default function RegisterPage() {
                   />
 
                   <span>
-                    Kullanım koşullarını ve gizlilik politikasını kabul
-                    ediyorum.
+                    Kullanım koşullarını ve gizlilik
+                    politikasını kabul ediyorum.
                   </span>
                 </label>
 
@@ -319,8 +446,9 @@ export default function RegisterPage() {
                     ? "Hesabın oluşturuluyor..."
                     : accountType === "customer"
                       ? "Müşteri Hesabı Oluştur →"
-                      : "Mağazamı Oluştur →"}
+                      : "Mağaza Başvurusu Oluştur →"}
                 </button>
+
               </form>
             </>
           )}
@@ -330,6 +458,7 @@ export default function RegisterPage() {
         {!message && (
           <p className="mt-6 text-center text-sm text-gray-600">
             Zaten hesabın var mı?{" "}
+
             <a
               href="/login"
               className="font-semibold text-purple-600 hover:text-purple-700"
@@ -348,8 +477,8 @@ export default function RegisterPage() {
             ← Ana sayfaya dön
           </a>
         </div>
+
       </div>
     </main>
   );
 }
-

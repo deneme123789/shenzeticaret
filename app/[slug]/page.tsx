@@ -7,6 +7,8 @@ type Store = {
   id: string;
   name: string;
   slug: string;
+  verification_status: "pending" | "approved" | "rejected";
+  status: "active" | "suspended" | "blocked";
 };
 
 type Product = {
@@ -66,10 +68,12 @@ export default function StorePage() {
       }
 
       const { data: storeData, error: storeError } = await supabase
-        .from("stores")
-        .select("*")
-        .eq("slug", slug)
-        .single();
+  .from("stores")
+  .select(
+    "id, name, slug, verification_status, status"
+  )
+  .eq("slug", slug)
+  .single();
 
       if (storeError || !storeData) {
         console.log("Store error:", storeError);
@@ -78,6 +82,14 @@ export default function StorePage() {
       }
 
       setStore(storeData);
+
+      if (
+  storeData.verification_status !== "approved" ||
+  storeData.status !== "active"
+) {
+  setLoading(false);
+  return;
+}
 
       const { data: productData, error: productError } = await supabase
         .from("products")
@@ -400,6 +412,54 @@ export default function StorePage() {
     );
   }
 
+  if (
+  store &&
+  (
+    store.verification_status !== "approved" ||
+    store.status !== "active"
+  )
+) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-purple-50 via-white to-indigo-50 px-6">
+      <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-xl sm:p-12">
+        <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-yellow-100 text-5xl">
+          🏪
+        </div>
+
+        <p className="mt-7 text-sm font-bold uppercase tracking-wider text-purple-600">
+          MiniShop
+        </p>
+
+        <h1 className="mt-3 text-3xl font-extrabold text-gray-900">
+          Mağaza şu anda satışa açık değil
+        </h1>
+
+        <p className="mt-4 leading-7 text-gray-600">
+          <strong>{store.name}</strong> mağazası şu anda ürün satışı
+          gerçekleştiremiyor.
+        </p>
+
+        <div className="mt-7 rounded-2xl bg-gray-50 p-5 text-left">
+          <p className="text-sm font-bold text-gray-900">
+            Mağaza durumu
+          </p>
+
+          <p className="mt-2 text-sm text-gray-600">
+            Bu mağaza henüz MiniShop tarafından onaylanmamış,
+            askıya alınmış veya satışa kapatılmış olabilir.
+          </p>
+        </div>
+
+        <a
+          href="/"
+          className="mt-7 inline-block w-full rounded-xl bg-purple-600 px-6 py-4 font-bold text-white transition hover:bg-purple-700"
+        >
+          MiniShop Ana Sayfasına Dön
+        </a>
+      </div>
+    </main>
+  );
+}
   if (!store) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-6">
