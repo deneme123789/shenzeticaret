@@ -3,26 +3,32 @@
 import { FormEvent, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
+  const [password, setPassword] = useState("");
+  const [passwordAgain, setPasswordAgain] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setLoading(true);
     setError("");
     setMessage("");
 
-    const formData = new FormData(event.currentTarget);
+    if (password.length < 6) {
+      setError("Şifre en az 6 karakter olmalı.");
+      return;
+    }
 
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    if (password !== passwordAgain) {
+      setError("Şifreler birbiriyle aynı değil.");
+      return;
+    }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
+    setLoading(true);
+
+    const { error } = await supabase.auth.updateUser({
       password,
     });
 
@@ -32,43 +38,10 @@ export default function LoginPage() {
       return;
     }
 
-    setMessage("🎉 Başarıyla giriş yaptın!");
-
+    setMessage("🎉 Şifren başarıyla değiştirildi!");
+    setPassword("");
+    setPasswordAgain("");
     setLoading(false);
-  }
-
-  async function handleForgotPassword() {
-    setError("");
-    setMessage("");
-
-    const emailInput = document.querySelector(
-      'input[name="email"]'
-    ) as HTMLInputElement | null;
-
-    const email = emailInput?.value.trim();
-
-    if (!email) {
-      setError("Önce e-posta adresini yaz.");
-      return;
-    }
-
-    setResetLoading(true);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-
-    if (error) {
-      setError(error.message);
-      setResetLoading(false);
-      return;
-    }
-
-    setMessage(
-      "📧 Şifre sıfırlama bağlantısı e-posta adresine gönderildi. Gelen kutunu ve spam klasörünü kontrol et."
-    );
-
-    setResetLoading(false);
   }
 
   return (
@@ -80,11 +53,11 @@ export default function LoginPage() {
           </a>
 
           <h1 className="mt-8 text-3xl font-extrabold">
-            Giriş Yap
+            Yeni Şifre Belirle
           </h1>
 
           <p className="mt-3 text-gray-600">
-            Mağazana devam etmek için giriş yap.
+            Hesabın için yeni bir şifre oluştur.
           </p>
         </div>
 
@@ -94,63 +67,52 @@ export default function LoginPage() {
               <div className="text-5xl">🎉</div>
 
               <h2 className="mt-5 text-2xl font-bold">
-                İşlem tamamlandı
+                Şifren değiştirildi!
               </h2>
 
               <p className="mt-3 text-gray-600">
-                {message}
+                Artık yeni şifrenle giriş yapabilirsin.
               </p>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setMessage("");
-                  setError("");
-                }}
-                className="mt-6 rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-700"
+              <a
+                href="/login"
+                className="mt-6 inline-block rounded-xl bg-purple-600 px-6 py-3 font-bold text-white hover:bg-purple-700"
               >
-                Giriş ekranına dön
-              </button>
+                Giriş Yap
+              </a>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="mb-2 block text-sm font-semibold">
-                  E-posta
+                  Yeni Şifre
                 </label>
 
                 <input
-                  name="email"
-                  type="email"
-                  placeholder="ornek@email.com"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Yeni şifren"
                   required
+                  minLength={6}
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                 />
               </div>
 
               <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="block text-sm font-semibold">
-                    Şifre
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={resetLoading}
-                    className="text-sm font-semibold text-purple-600 hover:text-purple-800 disabled:opacity-60"
-                  >
-                    {resetLoading
-                      ? "Gönderiliyor..."
-                      : "Şifremi unuttum"}
-                  </button>
-                </div>
+                <label className="mb-2 block text-sm font-semibold">
+                  Yeni Şifre Tekrar
+                </label>
 
                 <input
-                  name="password"
                   type="password"
-                  placeholder="Şifren"
+                  value={passwordAgain}
+                  onChange={(event) =>
+                    setPasswordAgain(event.target.value)
+                  }
+                  placeholder="Yeni şifreni tekrar yaz"
                   required
+                  minLength={6}
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                 />
               </div>
@@ -166,19 +128,20 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full rounded-xl bg-purple-600 py-4 font-bold text-white hover:bg-purple-700 disabled:opacity-60"
               >
-                {loading ? "Giriş yapılıyor..." : "Giriş Yap →"}
+                {loading
+                  ? "Şifre değiştiriliyor..."
+                  : "Şifremi Değiştir →"}
               </button>
             </form>
           )}
         </div>
 
         <p className="mt-6 text-center text-sm text-gray-600">
-          Hesabın yok mu?{" "}
           <a
-            href="/register"
+            href="/login"
             className="font-semibold text-purple-600"
           >
-            Mağazanı oluştur
+            ← Giriş ekranına dön
           </a>
         </p>
       </div>
