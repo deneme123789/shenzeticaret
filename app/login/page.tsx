@@ -21,18 +21,92 @@ export default function LoginPage() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error: loginError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+    if (loginError) {
+      setError(loginError.message);
       setLoading(false);
       return;
     }
 
-    window.location.href = "/dashboard";
+    if (!data.user) {
+      setError("Giriş yapılamadı.");
+      setLoading(false);
+      return;
+    }
+
+    const user = data.user;
+
+    // ============================================
+    // 1. ADMIN KONTROLÜ
+    // ============================================
+
+    const { data: adminData, error: adminError } =
+      await supabase
+        .from("admin_users")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (adminError) {
+      console.log("Admin kontrolü:", adminError);
+    }
+
+    if (adminData) {
+      window.location.href = "/admin";
+      return;
+    }
+
+    // ============================================
+    // 2. HESAP TÜRÜ
+    // ============================================
+
+    const accountType =
+      user.user_metadata?.account_type;
+
+    // ============================================
+    // 3. SATICI
+    // ============================================
+
+    if (accountType === "seller") {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    // ============================================
+    // 4. MÜŞTERİ
+    // ============================================
+
+    if (accountType === "customer") {
+      window.location.href = "/customer";
+      return;
+    }
+
+    // ============================================
+    // 5. ESKİ / EKSİK HESAPLAR
+    // ============================================
+
+    // Eğer hesap türü bulunamazsa,
+    // önce mağaza sahibi olup olmadığına bakıyoruz.
+
+    const { data: storeData } = await supabase
+      .from("stores")
+      .select("id")
+      .eq("owner_id", user.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (storeData) {
+      window.location.href = "/dashboard";
+      return;
+    }
+
+    // Mağazası olmayan hesabı müşteri kabul ediyoruz.
+    window.location.href = "/customer";
   }
 
   async function handleForgotPassword() {
@@ -52,9 +126,13 @@ export default function LoginPage() {
 
     setResetLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } =
+      await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
 
     if (error) {
       setError(error.message);
@@ -72,9 +150,17 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 px-6 py-12">
       <div className="mx-auto max-w-md">
+
         <div className="mb-10 text-center">
-          <a href="/" className="text-3xl font-extrabold">
-            Mini<span className="text-purple-600">Shop</span>
+
+          <a
+            href="/"
+            className="text-3xl font-extrabold"
+          >
+            Mini
+            <span className="text-purple-600">
+              Shop
+            </span>
           </a>
 
           <h1 className="mt-8 text-3xl font-extrabold">
@@ -82,14 +168,19 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-3 text-gray-600">
-            Mağazana devam etmek için giriş yap.
+            Hesabınıza devam etmek için giriş yapın.
           </p>
+
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-xl">
+
           {message ? (
             <div className="py-8 text-center">
-              <div className="text-5xl">🎉</div>
+
+              <div className="text-5xl">
+                🎉
+              </div>
 
               <h2 className="mt-5 text-2xl font-bold">
                 İşlem tamamlandı
@@ -109,10 +200,16 @@ export default function LoginPage() {
               >
                 Giriş ekranına dön
               </button>
+
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-5"
+            >
+
               <div>
+
                 <label className="mb-2 block text-sm font-semibold">
                   E-posta
                 </label>
@@ -124,10 +221,13 @@ export default function LoginPage() {
                   required
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                 />
+
               </div>
 
               <div>
+
                 <div className="mb-2 flex items-center justify-between">
+
                   <label className="block text-sm font-semibold">
                     Şifre
                   </label>
@@ -142,6 +242,7 @@ export default function LoginPage() {
                       ? "Gönderiliyor..."
                       : "Şifremi unuttum"}
                   </button>
+
                 </div>
 
                 <input
@@ -151,6 +252,7 @@ export default function LoginPage() {
                   required
                   className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-100"
                 />
+
               </div>
 
               {error && (
@@ -164,21 +266,29 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full rounded-xl bg-purple-600 py-4 font-bold text-white hover:bg-purple-700 disabled:opacity-60"
               >
-                {loading ? "Giriş yapılıyor..." : "Giriş Yap →"}
+                {loading
+                  ? "Giriş yapılıyor..."
+                  : "Giriş Yap →"}
               </button>
+
             </form>
           )}
+
         </div>
 
         <p className="mt-6 text-center text-sm text-gray-600">
+
           Hesabın yok mu?{" "}
+
           <a
             href="/register"
             className="font-semibold text-purple-600"
           >
-            Mağazanı oluştur
+            Hesap Oluştur
           </a>
+
         </p>
+
       </div>
     </main>
   );
